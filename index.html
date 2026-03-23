@@ -464,17 +464,21 @@
 
       let mSize;
       if (isMobile) {
-        // Clear desktop inline row style; CSS media query handles 2-col layout
-        grid.style.gridTemplateRows = '';
-        // Size metrics to fit two values side-by-side in a ~46vw card
-        mSize = Math.round(window.innerWidth * 0.07);
+        // Force 2 columns via inline style (overrides CSS cascade order issue)
+        grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        grid.style.gridTemplateRows    = '';
+        // Fit two values side-by-side: conservative ~5.6vw
+        mSize = Math.round(window.innerWidth * 0.056);
       } else {
-        grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        grid.style.gridTemplateColumns = '';
+        grid.style.gridTemplateRows    = `repeat(${rows}, 1fr)`;
         const wrapH = grid.parentElement.clientHeight;
         const gapPx = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
         const rowH  = (wrapH - gapPx * (rows - 1)) / rows;
         mSize = Math.round(Math.min(Math.max(16, rowH * 0.45), 66));
       }
+
+      const cancLabel = isMobile ? 'Canc' : 'Cancellations';
 
       grid.innerHTML = sorted.map(t => {
         const rp        = ragP(t.punct);
@@ -490,7 +494,7 @@
               </div>
               <div class="toc-metric right">
                 <span class="canc-value badge-${rc}" style="font-size:${mSize}px">${t.canc.toFixed(1)}%</span>
-                <span class="toc-metric-label">Cancellations</span>
+                <span class="toc-metric-label">${cancLabel}</span>
               </div>
             </div>
           </div>`;
