@@ -169,6 +169,21 @@
       .live-pill  { gap: 1.5vw; padding: 1vw 2vw; }
       .live-text  { font-size: 10px; }
       .timestamp  { font-size: clamp(13px, 4vw, 20px); }
+
+      /* Allow page to scroll on mobile */
+      html, body  { height: auto; overflow-y: auto; }
+      body        { min-height: 100vh; }
+
+      /* Grid: 2 columns, auto-height rows, scrollable */
+      .grid-wrap  { flex: none; overflow: visible; padding: 2vw 3vw 6vw; }
+      .toc-grid   { grid-template-columns: repeat(2, 1fr); gap: 2.5vw; }
+      .toc-card   { padding: 2.5vw 3vw; }
+      .toc-name   { font-size: 3.5vw; }
+      .toc-metric-label { font-size: 2.2vw; }
+
+      /* Sort bar */
+      .sort-bar   { gap: 2.5vw; padding: 2vw 3vw 0; flex-wrap: wrap; }
+      .sort-btn   { font-size: 2.8vw; padding: 1.2vw 2vw; letter-spacing: 0.06em; }
     }
 
     /* ── TOC GRID ────────────────────────────────────── */
@@ -350,7 +365,7 @@
     function setLabels() {
       const mobile = window.innerWidth <= 700;
       document.getElementById('labelPunct').textContent = mobile ? 'Time to 3' : 'Time to 3 \u2014 National';
-      document.getElementById('labelCanc').textContent  = mobile ? 'Cancelled'  : 'Cancellations \u2014 National';
+      document.getElementById('labelCanc').textContent  = mobile ? 'Cancellations' : 'Cancellations \u2014 National';
     }
     setLabels();
     window.addEventListener('resize', () => { setLabels(); if (lastData) render(lastData); });
@@ -441,16 +456,25 @@
       document.getElementById('timestamp').textContent =
         new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-      const sorted = applySort(d.tocs);
-      const rows   = Math.ceil(sorted.length / 3);
-      const grid   = document.getElementById('tocGrid');
-      grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      const sorted   = applySort(d.tocs);
+      const isMobile = window.innerWidth <= 700;
+      const cols     = isMobile ? 2 : 3;
+      const rows     = Math.ceil(sorted.length / cols);
+      const grid     = document.getElementById('tocGrid');
 
-      // Scale metric numbers to fit row height: measure wrap before re-render
-      const wrapH   = grid.parentElement.clientHeight;
-      const gapPx   = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
-      const rowH    = (wrapH - gapPx * (rows - 1)) / rows;
-      const mSize   = Math.round(Math.min(Math.max(16, rowH * 0.45), 66));
+      let mSize;
+      if (isMobile) {
+        // Clear desktop inline row style; CSS media query handles 2-col layout
+        grid.style.gridTemplateRows = '';
+        // Size metrics to fit two values side-by-side in a ~46vw card
+        mSize = Math.round(window.innerWidth * 0.07);
+      } else {
+        grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        const wrapH = grid.parentElement.clientHeight;
+        const gapPx = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
+        const rowH  = (wrapH - gapPx * (rows - 1)) / rows;
+        mSize = Math.round(Math.min(Math.max(16, rowH * 0.45), 66));
+      }
 
       grid.innerHTML = sorted.map(t => {
         const rp        = ragP(t.punct);
