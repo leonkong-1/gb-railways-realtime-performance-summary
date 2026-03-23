@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Performance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #0b0d12;
+      --header-bg:     #002147;
+      --header-accent: #CC0000;
+      --surface:       #13161c;
+      --border:        #252a35;
+      --text:          #f0f2f5;
+      --muted:         #6b7280;
+
+      --green:         #4ade80;
+      --green-bg:      #052e16;
+      --green-border:  #166534;
+
+      --amber:         #fbbf24;
+      --amber-bg:      #1c1003;
+      --amber-border:  #78350f;
+
+      --red:           #f87171;
+      --red-bg:        #1f0808;
+      --red-border:    #7f1d1d;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER — desktop ───────────────────────────── */
+    .header {
+      background: var(--header-bg);
+      border-bottom: 3px solid var(--header-accent);
+      padding: 1.4vh 2.2vw;
+      display: grid;
+      grid-template-columns: auto 1fr 1fr auto;
+      align-items: center;
+      gap: 2vw;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: clamp(18px, 2.5vw, 46px);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    /* National metric lozenges */
+    .nat-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3vh;
+      padding: 1.0vh 1.4vw;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      min-width: 0;
+    }
+
+    .nat-metric-label {
+      font-size: clamp(10px, 0.95vw, 17px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.55);
+      white-space: nowrap;
+    }
+
+    .nat-metric-value {
+      font-size: clamp(34px, 5.8vw, 106px);
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    /* Live block */
+    .live-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.8vh;
+    }
+
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5vw;
+      padding: 0.4vh 0.9vw;
+      background: rgba(74, 222, 128, 0.12);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 100px;
+    }
+
+    .live-pill.error-pill {
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    .live-dot {
+      width: clamp(7px, 0.55vw, 11px);
+      height: clamp(7px, 0.55vw, 11px);
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.2; }
+    }
+
+    .live-text {
+      font-size: clamp(9px, 0.82vw, 14px);
+      font-weight: 700;
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .timestamp {
+      font-size: clamp(14px, 1.8vw, 32px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── HEADER — mobile ────────────────────────────── */
+    @media (max-width: 700px) {
+      .header {
+        /* Row 1: title | live block
+           Row 2: nat metric | nat metric        */
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 2vw 3vw;
+        padding: 2.5vw 3.5vw;
+      }
+
+      .brand-title    { grid-column: 1; grid-row: 1;
+                        font-size: clamp(16px, 5vw, 28px); }
+      .live-block     { grid-column: 2; grid-row: 1; align-self: center; }
+      #natPunct       { grid-column: 1; grid-row: 2; }
+      #natCanc        { grid-column: 2; grid-row: 2; }
+
+      /* Shorter labels on mobile — set via data-label-mobile */
+      .nat-metric-label { font-size: 10px; letter-spacing: 0.06em; }
+      .nat-metric-value { font-size: clamp(28px, 9.5vw, 50px); }
+
+      .nat-metric {
+        padding: 1.5vw 2vw;
+        align-items: flex-start;
+      }
+
+      .live-pill  { gap: 1.5vw; padding: 1vw 2vw; }
+      .live-text  { font-size: 10px; }
+      .timestamp  { font-size: clamp(13px, 4vw, 20px); }
+    }
+
+    /* ── TOC GRID ────────────────────────────────────── */
+    .grid-wrap {
+      flex: 1;
+      padding: 1.2vh 1.6vw 1.4vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(4px, 0.5vh, 9px) clamp(5px, 0.65vw, 11px);
+      flex: 1;
+    }
+
+    .toc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85vh 1.0vw;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .toc-name {
+      font-size: clamp(11px, 1.05vw, 20px);
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toc-body {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0.5vw;
+    }
+
+    .toc-metric { display: flex; flex-direction: column; }
+    .toc-metric.right { align-items: flex-end; }
+
+    .toc-metric-value {
+      font-size: clamp(20px, 3.5vw, 66px);
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .canc-value {
+      font-size: clamp(20px, 3.5vw, 66px);
+      font-weight: 700;
+      line-height: 1;
+      display: inline-block;
+      padding: 0.1vh 0.4vw;
+      border-radius: 4px;
+    }
+
+    .toc-metric-label {
+      font-size: clamp(7px, 0.6vw, 11px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-top: 0.2vh;
+    }
+
+    /* ── RAG ─────────────────────────────────────────── */
+    .green { color: var(--green); }
+    .amber { color: var(--amber); }
+    .red   { color: var(--red);   }
+
+    .card-green { border-color: var(--green-border); }
+    .card-amber { border-color: var(--amber-border); }
+    .card-red   { border-color: var(--red-border);   }
+
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    .badge-red   { background: var(--red-bg);   color: var(--red);   }
+
+    .nat-green { color: var(--green); }
+    .nat-amber { color: var(--amber); }
+    .nat-red   { color: var(--red);   }
+
+    /* ── SORT BAR ────────────────────────────────── */
+    .sort-bar {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.8vw;
+      padding: 0.6vh 1.6vw 0;
+    }
+
+    .sort-group {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .sort-btn {
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: clamp(9px, 0.72vw, 13px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.5vh 0.8vw;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .sort-btn:last-child { border-right: none; }
+
+    .sort-btn.active {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+
+    .sort-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.7);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+
+    <span class="brand-title">Real-Time Performance</span>
+
+    <div class="nat-metric" id="natPunct">
+      <span class="nat-metric-label" id="labelPunct">Time to 3 &mdash; National</span>
+      <span class="nat-metric-value" id="natPunctVal">—</span>
+    </div>
+
+    <div class="nat-metric" id="natCanc">
+      <span class="nat-metric-label" id="labelCanc">Cancellations &mdash; National</span>
+      <span class="nat-metric-value" id="natCancVal">—</span>
+    </div>
+
+    <div class="live-block">
+      <div class="live-pill">
+        <div class="live-dot"></div>
+        <span class="live-text">Live</span>
+      </div>
+      <span class="timestamp" id="timestamp">—</span>
+    </div>
+
+  </header>
+
+  <div class="sort-bar">
+    <span style="font-size:clamp(9px,0.72vw,13px);font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Sort by</span>
+    <div class="sort-group">
+      <button class="sort-btn active" id="btnPunct" onclick="setSortBy('punct')">Time to 3</button>
+      <button class="sort-btn"        id="btnCanc"  onclick="setSortBy('canc')">Cancellations</button>
+    </div>
+    <div class="sort-group">
+      <button class="sort-btn active" id="btnWorst" onclick="setSortDir('worst')">Worst first</button>
+      <button class="sort-btn"        id="btnBest"  onclick="setSortDir('best')">Best first</button>
+    </div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="toc-grid" id="tocGrid"></div>
+  </div>
+
+  <script>
+    // Shorten header labels on mobile
+    function setLabels() {
+      const mobile = window.innerWidth <= 700;
+      document.getElementById('labelPunct').textContent = mobile ? 'Time to 3' : 'Time to 3 \u2014 National';
+      document.getElementById('labelCanc').textContent  = mobile ? 'Cancelled'  : 'Cancellations \u2014 National';
+    }
+    setLabels();
+    window.addEventListener('resize', () => { setLabels(); if (lastData) render(lastData); });
+
+    const API_URL = 'https://api1.raildata.org.uk/1033-realtime-performance-data-experience-api---performance-datav2_0/performanceData/RTOTM';
+    const API_KEY = 'j7N2cDARnEY3XH2KtUfvxS1AzGfCOHL1jjYClyvRhMXbSkgZ';
+
+    async function loadData() {
+      const res = await fetch(API_URL, { headers: { 'x-apikey': API_KEY } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const nat = json.performanceData.national;
+      return {
+        national: {
+          punct: nat.RTOTM.punctuality.timeTo3.percent,
+          canc:  nat.RTOTM.reliability.percent
+        },
+        tocs: nat.operators
+          .filter(o => o.operatorType === 'FRANCHISED')
+          .map(o => ({
+            name:  o.desc,
+            punct: o.RTOTM.punctuality.timeTo3.percent,
+            canc:  o.RTOTM.reliability.percent
+          }))
+      };
+    }
+
+    function setLiveState(ok) {
+      const pill = document.querySelector('.live-pill');
+      const dot  = pill.querySelector('.live-dot');
+      const txt  = pill.querySelector('.live-text');
+      if (ok) {
+        pill.classList.remove('error-pill');
+        dot.style.background = '';
+        dot.style.animationPlayState = '';
+        txt.style.color = '';
+        txt.textContent = 'Live';
+      } else {
+        pill.classList.add('error-pill');
+        dot.style.background = 'var(--red)';
+        dot.style.animationPlayState = 'paused';
+        txt.style.color = 'var(--red)';
+        txt.textContent = 'Data unavailable';
+      }
+    }
+
+    const ragP = v => v >= 85 ? 'green' : v >= 80 ? 'amber' : 'red';
+    const ragC = v => v <= 2  ? 'green' : v <=  4 ? 'amber' : 'red';
+
+    let sortBy   = 'punct';
+    let sortDir  = 'worst';
+    let lastData = null;
+
+    function applySort(tocs) {
+      return [...tocs].sort((a, b) => {
+        const va = a[sortBy], vb = b[sortBy];
+        // For punct: lower = worse (ascending = worst first).
+        // For canc:  higher = worse (descending = worst first).
+        const ascending = sortBy === 'punct' ? sortDir === 'worst' : sortDir === 'best';
+        return ascending ? va - vb : vb - va;
+      });
+    }
+
+    function setSortBy(by) {
+      sortBy = by;
+      document.getElementById('btnPunct').classList.toggle('active', by === 'punct');
+      document.getElementById('btnCanc').classList.toggle('active', by === 'canc');
+      if (lastData) render(lastData);
+    }
+
+    function setSortDir(dir) {
+      sortDir = dir;
+      document.getElementById('btnWorst').classList.toggle('active', dir === 'worst');
+      document.getElementById('btnBest').classList.toggle('active', dir === 'best');
+      if (lastData) render(lastData);
+    }
+
+    function render(d) {
+      lastData = d;
+
+      const pp = ragP(d.national.punct);
+      const pc = ragC(d.national.canc);
+
+      document.getElementById('natPunctVal').className = `nat-metric-value nat-${pp}`;
+      document.getElementById('natPunctVal').textContent = d.national.punct.toFixed(1) + '%';
+      document.getElementById('natCancVal').className = `nat-metric-value nat-${pc}`;
+      document.getElementById('natCancVal').textContent = d.national.canc.toFixed(1) + '%';
+      document.getElementById('timestamp').textContent =
+        new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const sorted = applySort(d.tocs);
+      const rows   = Math.ceil(sorted.length / 3);
+      const grid   = document.getElementById('tocGrid');
+      grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+      // Scale metric numbers to fit row height: measure wrap before re-render
+      const wrapH   = grid.parentElement.clientHeight;
+      const gapPx   = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
+      const rowH    = (wrapH - gapPx * (rows - 1)) / rows;
+      const mSize   = Math.round(Math.min(Math.max(16, rowH * 0.45), 66));
+
+      grid.innerHTML = sorted.map(t => {
+        const rp        = ragP(t.punct);
+        const rc        = ragC(t.canc);
+        const borderRag = sortBy === 'punct' ? rp : rc;
+        return `
+          <div class="toc-card card-${borderRag}">
+            <div class="toc-name">${t.name}</div>
+            <div class="toc-body">
+              <div class="toc-metric">
+                <span class="toc-metric-value ${rp}" style="font-size:${mSize}px">${t.punct.toFixed(1)}%</span>
+                <span class="toc-metric-label">Time to 3</span>
+              </div>
+              <div class="toc-metric right">
+                <span class="canc-value badge-${rc}" style="font-size:${mSize}px">${t.canc.toFixed(1)}%</span>
+                <span class="toc-metric-label">Cancellations</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function tick() {
+      loadData()
+        .then(data => { setLiveState(true); render(data); })
+        .catch(err  => { console.error('Data fetch failed:', err); setLiveState(false); });
+    }
+
+    tick();
+    setInterval(tick, 60_000);
+  </script>
+
+</body>
+</html>
