@@ -86,7 +86,10 @@
       font-size: clamp(34px, 5.8vw, 106px);
       font-weight: 700;
       line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
+
+    #natCancVal { font-weight: 300; }
 
     /* Live block */
     .live-block {
@@ -138,14 +141,22 @@
       font-weight: 300;
       color: rgba(255,255,255,0.4);
       letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .last-updated {
+      font-size: clamp(8px, 0.65vw, 11px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
     }
 
     /* ── HEADER — mobile ────────────────────────────── */
     @media (max-width: 700px) {
       .header {
-        /* Row 1: title | live block
-           Row 2: nat metric | nat metric        */
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr 1fr;
         grid-template-rows: auto auto;
         gap: 2vw 3vw;
         padding: 2.5vw 3.5vw;
@@ -157,7 +168,6 @@
       #natPunct       { grid-column: 1; grid-row: 2; }
       #natCanc        { grid-column: 2; grid-row: 2; }
 
-      /* Shorter labels on mobile — set via data-label-mobile */
       .nat-metric-label { font-size: 10px; letter-spacing: 0.06em; }
       .nat-metric-value { font-size: clamp(28px, 9.5vw, 50px); }
 
@@ -178,12 +188,43 @@
       .grid-wrap  { flex: none; overflow: visible; padding: 2vw 3vw 6vw; }
       .toc-grid   { grid-template-columns: repeat(2, 1fr); gap: 2.5vw; }
       .toc-card   { padding: 2.5vw 3vw; }
-      .toc-name   { font-size: 3.5vw; }
+      .toc-name   { font-size: 4.2vw; }
       .toc-metric-label { font-size: 2.2vw; }
 
       /* Sort bar */
       .sort-bar   { gap: 2.5vw; padding: 2vw 3vw 0; flex-wrap: wrap; }
       .sort-btn   { font-size: 2.8vw; padding: 1.2vw 2vw; letter-spacing: 0.06em; }
+
+      /* Sector header — mobile */
+      .sector-header {
+        height: auto;
+        padding: 2.5vw 1vw 1vw;
+        font-size: clamp(10px, 3.4vw, 15px);
+        letter-spacing: 0.08em;
+        gap: 2vw;
+      }
+    }
+
+    /* ── SECTOR HEADER ───────────────────────────────── */
+    .sector-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 0.8vw;
+      height: 32px; /* fixed — used in desktop row-height maths */
+      font-size: clamp(11px, 0.9vw, 16px);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      padding: 0 0.2vw;
+    }
+
+    .sector-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
     }
 
     /* ── TOC GRID ────────────────────────────────────── */
@@ -205,13 +246,36 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.85vh 1.0vw;
+      padding: 0.6vh 0.75vw;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       overflow: hidden;
     }
 
+    /* ── Desktop: horizontal card layout ─────────────── */
+    /* Metrics are direct children — no toc-body wrapper on desktop */
+    .card-row {
+      display: grid;
+      grid-template-columns: 40% 30% 30%;
+      align-items: center;
+      column-gap: 0.4vw;
+    }
+
+    /* First metric cell: left-aligned */
+    .card-row .toc-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    /* Both metric cells: left-aligned */
+    .card-row .toc-metric.right {
+      align-items: flex-start;
+    }
+
+    /* ── Shared card internals ──────────────────────── */
     .toc-name {
       font-size: clamp(11px, 1.05vw, 20px);
       font-weight: 600;
@@ -235,15 +299,13 @@
       font-size: clamp(20px, 3.5vw, 66px);
       font-weight: 700;
       line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
 
     .canc-value {
       font-size: clamp(20px, 3.5vw, 66px);
-      font-weight: 700;
+      font-weight: 300;
       line-height: 1;
-      display: inline-block;
-      padding: 0.1vh 0.4vw;
-      border-radius: 4px;
     }
 
     .toc-metric-label {
@@ -255,6 +317,18 @@
       margin-top: 0.2vh;
     }
 
+    /* ── Value update animation ─────────────────────── */
+    @keyframes value-breathe {
+      0%   { opacity: 1;    transform: scale(1);    }
+      30%  { opacity: 0.15; transform: scale(0.94); }
+      70%  { opacity: 1;    transform: scale(1.05); }
+      100% { opacity: 1;    transform: scale(1);    }
+    }
+
+    .value-update {
+      animation: value-breathe 0.75s ease-in-out;
+    }
+
     /* ── RAG ─────────────────────────────────────────── */
     .green { color: var(--green); }
     .amber { color: var(--amber); }
@@ -264,9 +338,6 @@
     .card-amber { border-color: var(--amber-border); }
     .card-red   { border-color: var(--red-border);   }
 
-    .badge-green { background: var(--green-bg); color: var(--green); }
-    .badge-amber { background: var(--amber-bg); color: var(--amber); }
-    .badge-red   { background: var(--red-bg);   color: var(--red);   }
 
     .nat-green { color: var(--green); }
     .nat-amber { color: var(--amber); }
@@ -322,7 +393,7 @@
 
   <header class="header">
 
-    <span class="brand-title">Real-Time Performance</span>
+    <span class="brand-title">GBR TOCs Real-Time Performance</span>
 
     <div class="nat-metric" id="natPunct">
       <span class="nat-metric-label" id="labelPunct">Time to 3 &mdash; National</span>
@@ -340,6 +411,7 @@
         <span class="live-text">Live</span>
       </div>
       <span class="timestamp" id="timestamp">—</span>
+      <span class="last-updated" id="lastUpdated">&nbsp;</span>
     </div>
 
   </header>
@@ -361,7 +433,33 @@
   </div>
 
   <script>
-    // Shorten header labels on mobile
+    // ── TOC lookup: long name → { abbr, sector } ──────────────────────────
+    const TOC_MAP = {
+      'Caledonian Sleeper Limited':   { abbr: 'Sleeper', sector: 'Long Distance' },
+      'London North Eastern Railway': { abbr: 'LNER',    sector: 'Long Distance' },
+      'Avanti West Coast':            { abbr: 'AWC',     sector: 'Long Distance' },
+      'CrossCountry':                 { abbr: 'XC',      sector: 'Long Distance' },
+      'Great Western Railway':        { abbr: 'GWR',     sector: 'Long Distance' },
+      'TransPennine Trains':          { abbr: 'TPE',     sector: 'Long Distance' },
+      'East Midlands Railway':        { abbr: 'EMR',     sector: 'Regional' },
+      'West Midlands Trains':         { abbr: 'WMT',     sector: 'Regional' },
+      'ScotRail':                     { abbr: 'ScotRail',   sector: 'Regional' },
+      'Northern Trains':              { abbr: 'Northern', sector: 'Regional' },
+      'Transport for Wales':          { abbr: 'TfW',     sector: 'Regional' },
+      'Merseyrail':                   { abbr: 'Mersey',  sector: 'Regional' },
+      'Govia Thameslink Railway':     { abbr: 'GTR',     sector: 'London & SE' },
+      'South Western Railway':        { abbr: 'SWR',     sector: 'London & SE' },
+      'Elizabeth line':               { abbr: 'Elizabeth', sector: 'London & SE' },
+      'Southeastern':                 { abbr: 'SER',     sector: 'London & SE' },
+      'London Overground':            { abbr: 'Overground', sector: 'London & SE' },
+      'Chiltern':                     { abbr: 'Chiltern',  sector: 'London & SE' },
+      'Greater Anglia':               { abbr: 'GA',      sector: 'London & SE' },
+      'c2c':                          { abbr: 'c2c',     sector: 'London & SE' },
+    };
+
+    const SECTOR_ORDER = ['Long Distance', 'Regional', 'London & SE'];
+
+    // ── Header labels ─────────────────────────────────────────────────────
     function setLabels() {
       const mobile = window.innerWidth <= 700;
       document.getElementById('labelPunct').textContent = mobile ? 'Time to 3' : 'Time to 3 \u2014 National';
@@ -385,11 +483,16 @@
         },
         tocs: nat.operators
           .filter(o => o.operatorType === 'FRANCHISED')
-          .map(o => ({
-            name:  o.desc,
-            punct: o.RTOTM.punctuality.timeTo3.percent,
-            canc:  o.RTOTM.reliability.percent
-          }))
+          .map(o => {
+            const map = TOC_MAP[o.desc] || { abbr: o.desc, sector: 'Long Distance' };
+            return {
+              name:   o.desc,
+              abbr:   map.abbr,
+              sector: map.sector,
+              punct:  o.RTOTM.punctuality.timeTo3.percent,
+              canc:   o.RTOTM.reliability.percent
+            };
+          })
       };
     }
 
@@ -422,8 +525,6 @@
     function applySort(tocs) {
       return [...tocs].sort((a, b) => {
         const va = a[sortBy], vb = b[sortBy];
-        // For punct: lower = worse (ascending = worst first).
-        // For canc:  higher = worse (descending = worst first).
         const ascending = sortBy === 'punct' ? sortDir === 'worst' : sortDir === 'best';
         return ascending ? va - vb : vb - va;
       });
@@ -443,62 +544,148 @@
       if (lastData) render(lastData);
     }
 
-    function render(d) {
-      lastData = d;
-
-      const pp = ragP(d.national.punct);
-      const pc = ragC(d.national.canc);
-
-      document.getElementById('natPunctVal').className = `nat-metric-value nat-${pp}`;
-      document.getElementById('natPunctVal').textContent = d.national.punct.toFixed(1) + '%';
-      document.getElementById('natCancVal').className = `nat-metric-value nat-${pc}`;
-      document.getElementById('natCancVal').textContent = d.national.canc.toFixed(1) + '%';
+    // ── Live clock (independent of data fetch) ───────────────────────────
+    function updateClock() {
       document.getElementById('timestamp').textContent =
         new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
 
-      const sorted   = applySort(d.tocs);
+    // ── Breathing flash on value change ──────────────────────────────────
+    function flashEl(el) {
+      el.classList.remove('value-update');
+      void el.offsetWidth; // force reflow to restart animation
+      el.classList.add('value-update');
+    }
+
+    function render(d) {
+      const prev = lastData; // capture before overwriting
+      lastData = d;
+
+      // National metrics — flash if value changed
+      const pp   = ragP(d.national.punct);
+      const pc   = ragC(d.national.canc);
+      const pEl  = document.getElementById('natPunctVal');
+      const cEl  = document.getElementById('natCancVal');
+      const natPunctChanged = prev && prev.national.punct !== d.national.punct;
+      const natCancChanged  = prev && prev.national.canc  !== d.national.canc;
+
+      pEl.className   = `nat-metric-value nat-${pp}`;
+      pEl.textContent = d.national.punct.toFixed(1) + '%';
+      cEl.className   = `nat-metric-value nat-${pc}`;
+      cEl.textContent = d.national.canc.toFixed(1) + '%';
+
+      if (natPunctChanged) flashEl(pEl);
+      if (natCancChanged)  flashEl(cEl);
+
+      document.getElementById('lastUpdated').textContent =
+        'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      // Build lookup of previous TOC values for change detection
+      const prevMap = {};
+      if (prev) prev.tocs.forEach(t => { prevMap[t.abbr] = { punct: t.punct, canc: t.canc }; });
+
       const isMobile = window.innerWidth <= 700;
       const cols     = isMobile ? 2 : 3;
-      const rows     = Math.ceil(sorted.length / cols);
       const grid     = document.getElementById('tocGrid');
 
-      let mSize;
+      // Group TOCs by sector, sort within each sector
+      const sectorMap = {};
+      SECTOR_ORDER.forEach(s => { sectorMap[s] = []; });
+      d.tocs.forEach(t => {
+        const s = SECTOR_ORDER.includes(t.sector) ? t.sector : 'Long Distance';
+        sectorMap[s].push(t);
+      });
+      const sectors = SECTOR_ORDER
+        .map(s => ({ name: s, tocs: applySort(sectorMap[s]) }))
+        .filter(s => s.tocs.length > 0);
+
+      // Row counts per sector (data rows only)
+      const dataRowCounts = sectors.map(s => Math.ceil(s.tocs.length / cols));
+      const totalDataRows = dataRowCounts.reduce((a, b) => a + b, 0);
+      const numDividers   = sectors.length;
+
+      let mSize, nameSize;
+
       if (isMobile) {
-        // Force 2 columns via inline style (overrides CSS cascade order issue)
         grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
         grid.style.gridTemplateRows    = '';
-        // Fit two values side-by-side: conservative ~5.6vw
-        mSize = Math.round(window.innerWidth * 0.056);
+        mSize    = Math.round(window.innerWidth * 0.056);
+        nameSize = null; // CSS-controlled on mobile
       } else {
         grid.style.gridTemplateColumns = '';
-        grid.style.gridTemplateRows    = `repeat(${rows}, 1fr)`;
-        const wrapH = grid.parentElement.clientHeight;
-        const gapPx = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
-        const rowH  = (wrapH - gapPx * (rows - 1)) / rows;
-        mSize = Math.round(Math.min(Math.max(16, rowH * 0.45), 66));
+
+        // Build explicit row template: 28px for each sector header, 1fr for each data row
+        const rowDefs = [];
+        sectors.forEach((s, i) => {
+          rowDefs.push('32px');
+          for (let r = 0; r < dataRowCounts[i]; r++) rowDefs.push('1fr');
+        });
+        grid.style.gridTemplateRows = rowDefs.join(' ');
+
+        // Calculate metric font size from available row height
+        const wrapH       = grid.parentElement.clientHeight;
+        const gapPx       = Math.min(Math.max(4, window.innerHeight * 0.005), 9);
+        const headerRowH  = 32;
+        const totalItems  = totalDataRows + numDividers;
+        const totalGapH   = gapPx * (totalItems - 1);
+        const availH      = wrapH - headerRowH * numDividers - totalGapH;
+        const rowH        = totalDataRows > 0 ? availH / totalDataRows : 40;
+        mSize    = Math.round(Math.min(Math.max(16, rowH * 0.50), 66));
+        nameSize = Math.round(Math.min(Math.max(13, rowH * 0.36), 38));
       }
 
-      const cancLabel = isMobile ? 'Canc' : 'Cancellations';
+      // Build HTML
+      let html = '';
+      sectors.forEach(({ name: sectorName, tocs }) => {
+        html += `<div class="sector-header">${sectorName}</div>`;
 
-      grid.innerHTML = sorted.map(t => {
-        const rp        = ragP(t.punct);
-        const rc        = ragC(t.canc);
-        const borderRag = sortBy === 'punct' ? rp : rc;
-        return `
-          <div class="toc-card card-${borderRag}">
-            <div class="toc-name">${t.name}</div>
-            <div class="toc-body">
-              <div class="toc-metric">
-                <span class="toc-metric-value ${rp}" style="font-size:${mSize}px">${t.punct.toFixed(1)}%</span>
-                <span class="toc-metric-label">Time to 3</span>
-              </div>
-              <div class="toc-metric right">
-                <span class="canc-value badge-${rc}" style="font-size:${mSize}px">${t.canc.toFixed(1)}%</span>
-                <span class="toc-metric-label">${cancLabel}</span>
-              </div>
-            </div>
-          </div>`;
-      }).join('');
+        tocs.forEach(t => {
+          const rp        = ragP(t.punct);
+          const rc        = ragC(t.canc);
+          const borderRag = sortBy === 'punct' ? rp : rc;
+
+          // Active sort metric leads — swap order and alignment when sorting by canc
+          const punctClass   = sortBy === 'canc' ? 'toc-metric right' : 'toc-metric';
+          const cancClass    = sortBy === 'canc' ? 'toc-metric'       : 'toc-metric right';
+          const punctChanged = prevMap[t.abbr] && prevMap[t.abbr].punct !== t.punct;
+          const cancChanged  = prevMap[t.abbr] && prevMap[t.abbr].canc  !== t.canc;
+
+          const punctBlock = `<div class="${punctClass}">
+                    <span class="toc-metric-value ${rp}" style="font-size:${mSize}px"${punctChanged ? ' data-upd' : ''}>${t.punct.toFixed(1)}%</span>
+                    <span class="toc-metric-label">Time to 3</span>
+                  </div>`;
+          const cancBlock  = `<div class="${cancClass}">
+                    <span class="canc-value ${rc}" style="font-size:${mSize}px"${cancChanged ? ' data-upd' : ''}>${t.canc.toFixed(1)}%</span>
+                    <span class="toc-metric-label">${isMobile ? 'Canc' : 'Cancellations'}</span>
+                  </div>`;
+
+          const metricsHtml = sortBy === 'canc'
+            ? cancBlock + punctBlock
+            : punctBlock + cancBlock;
+
+          if (isMobile) {
+            html += `
+              <div class="toc-card card-${borderRag}">
+                <div class="toc-name">${t.abbr}</div>
+                <div class="toc-body">${metricsHtml}</div>
+              </div>`;
+          } else {
+            // Metrics are direct grid children — no toc-body wrapper
+            html += `
+              <div class="toc-card card-${borderRag} card-row">
+                <div class="toc-name" style="font-size:${nameSize}px">${t.abbr}</div>
+                ${metricsHtml}
+              </div>`;
+          }
+        });
+      });
+
+      grid.innerHTML = html;
+
+      // Trigger breathing animation on any values that changed
+      grid.querySelectorAll('[data-upd]').forEach(flashEl);
     }
 
     function tick() {

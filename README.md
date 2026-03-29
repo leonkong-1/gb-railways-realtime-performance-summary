@@ -1,6 +1,6 @@
-# GB Railways Real-Time Performance Summary
+# GBR TOCs Real-Time Performance
 
-A single-file web dashboard providing a live visual summary of GB passenger rail punctuality and cancellation performance. Designed to run full-screen on a wall display, and responsive for mobile browsing.
+A single-file web dashboard showing live GB passenger rail punctuality and cancellation performance across all franchised TOCs. Designed to run full-screen on a wall display, and responsive for mobile browsing.
 
 **Live:** [leonkong-1.github.io/gb-railways-realtime-performance-summary](https://leonkong-1.github.io/gb-railways-realtime-performance-summary/)
 
@@ -10,20 +10,30 @@ Powered by the **NWR Realtime Performance Data API** from [Rail Data Marketplace
 
 ## Metrics
 
-The dashboard focuses exclusively on two metrics:
-
-- **Time to 3** — the percentage of trains arriving within 3 minutes of schedule. This is the primary punctuality measure underpinning the current government's regulated performance targets for passenger rail.
-- **Cancellations** — the percentage of scheduled services cancelled.
+- **Time to 3** — percentage of trains arriving within 3 minutes of schedule. The primary punctuality measure underpinning the current government's regulated performance targets for passenger rail.
+- **Cancellations** — percentage of scheduled services cancelled.
 
 Both are shown at national level in the header and per-TOC in the grid, colour-coded green / amber / red. Only franchised operators are shown; open-access operators and sector-level aggregates are excluded.
 
 ## Features
 
 - Live data refreshed every 15 seconds
-- Sort by Time to 3 or Cancellations, worst-first or best-first
-- Card border colour reflects the active sort metric
-- Metric font sizes scale dynamically to fit however many TOCs the API returns
-- Responsive: 3-column fixed layout on desktop / wall display; 2-column scrollable on mobile
+- Live clock ticking every second; separate "last updated" timestamp on data refresh
+- TOCs grouped into sector bands — **Long Distance**, **Regional**, **London & SE** — sorted independently within each sector
+- Sort by Time to 3 or Cancellations, worst-first or best-first; active sort metric leads in each card and drives card border colour
+- Abbreviated TOC names (e.g. LNER, AWC, ScotRail) from `toc_mapping.csv`
+- Time to 3 displayed in **bold (700)**, Cancellations in **light (300)** — visually distinct without colour reliance
+- Numbers use tabular figures for stable layout as values update
+- Breathing animation on any value that changes between refreshes
+- Desktop: 3-column grid, horizontal card layout (name | metric | metric), fixed 40/30/30% column proportions per card
+- Mobile: 2-column scrollable layout, vertical card layout
+
+## RAG thresholds
+
+| Metric | Green | Amber | Red |
+|---|---|---|---|
+| Time to 3 | ≥ 85% | 80–85% | < 80% |
+| Cancellations | ≤ 2% | 2–4% | > 4% |
 
 ## Usage
 
@@ -34,10 +44,3 @@ To substitute your own API key, replace the value of `API_KEY` near the top of t
 ## API key
 
 The API key is embedded directly in the HTML. This is intentional: the underlying data is genuinely open public data — Rail Data Marketplace simply requires a free account registration to obtain a key. The key has no meaningful security value.
-
-## RAG thresholds
-
-| Metric | Green | Amber | Red |
-|---|---|---|---|
-| Time to 3 | ≥ 85% | 80–85% | < 80% |
-| Cancellations | ≤ 2% | 2–4% | > 4% |
