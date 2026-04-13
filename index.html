@@ -52,12 +52,27 @@
       flex-shrink: 0;
     }
 
+    .brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4vh;
+      min-width: 0;
+    }
+
     .brand-title {
       font-size: clamp(18px, 2.5vw, 46px);
       font-weight: 700;
       letter-spacing: 0.01em;
       color: #ffffff;
       line-height: 1;
+    }
+
+    .brand-subtitle {
+      font-size: clamp(10px, 1.0vw, 16px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
     }
 
     /* National metric lozenges */
@@ -144,6 +159,14 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .datestamp {
+      font-size: clamp(10px, 1.0vw, 16px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
     .last-updated {
       font-size: clamp(8px, 0.65vw, 11px);
       font-weight: 400;
@@ -162,8 +185,9 @@
         padding: 2.5vw 3.5vw;
       }
 
-      .brand-title    { grid-column: 1; grid-row: 1;
-                        font-size: clamp(16px, 5vw, 28px); }
+      .brand-block    { grid-column: 1; grid-row: 1; }
+      .brand-title    { font-size: clamp(16px, 5vw, 28px); }
+      .brand-subtitle { font-size: clamp(10px, 3.0vw, 13px); white-space: normal; }
       .live-block     { grid-column: 2; grid-row: 1; align-self: center; }
       #natPunct       { grid-column: 1; grid-row: 2; }
       #natCanc        { grid-column: 2; grid-row: 2; }
@@ -393,7 +417,10 @@
 
   <header class="header">
 
-    <span class="brand-title">GBR TOCs Real-Time Performance</span>
+    <div class="brand-block">
+      <span class="brand-title">GBR TOCs Real-Time Performance</span>
+      <span class="brand-subtitle">Rolling daily totals from 04:30 hours</span>
+    </div>
 
     <div class="nat-metric" id="natPunct">
       <span class="nat-metric-label" id="labelPunct">Time to 3 &mdash; National</span>
@@ -411,6 +438,7 @@
         <span class="live-text">Live</span>
       </div>
       <span class="timestamp" id="timestamp">—</span>
+      <span class="datestamp" id="datestamp">—</span>
       <span class="last-updated" id="lastUpdated">&nbsp;</span>
     </div>
 
@@ -433,31 +461,31 @@
   </div>
 
   <script>
-    // ── TOC lookup: long name → { abbr, sector } ──────────────────────────
+    // ── TOC lookup: long name → { abbr, sector, gbr } ────────────────────
     const TOC_MAP = {
-      'Caledonian Sleeper Limited':   { abbr: 'Sleeper', sector: 'Long Distance' },
-      'London North Eastern Railway': { abbr: 'LNER',    sector: 'Long Distance' },
-      'Avanti West Coast':            { abbr: 'AWC',     sector: 'Long Distance' },
-      'CrossCountry':                 { abbr: 'XC',      sector: 'Long Distance' },
-      'Great Western Railway':        { abbr: 'GWR',     sector: 'Long Distance' },
-      'TransPennine Trains':          { abbr: 'TPE',     sector: 'Long Distance' },
-      'East Midlands Railway':        { abbr: 'EMR',     sector: 'Regional' },
-      'West Midlands Trains':         { abbr: 'WMT',     sector: 'Regional' },
-      'ScotRail':                     { abbr: 'ScotRail',   sector: 'Regional' },
-      'Northern Trains':              { abbr: 'Northern', sector: 'Regional' },
-      'Transport for Wales':          { abbr: 'TfW',     sector: 'Regional' },
-      'Merseyrail':                   { abbr: 'Mersey',  sector: 'Regional' },
-      'Govia Thameslink Railway':     { abbr: 'GTR',     sector: 'London & SE' },
-      'South Western Railway':        { abbr: 'SWR',     sector: 'London & SE' },
-      'Elizabeth line':               { abbr: 'Elizabeth', sector: 'London & SE' },
-      'Southeastern':                 { abbr: 'SER',     sector: 'London & SE' },
-      'London Overground':            { abbr: 'Overground', sector: 'London & SE' },
-      'Chiltern':                     { abbr: 'Chiltern',  sector: 'London & SE' },
-      'Greater Anglia':               { abbr: 'GA',      sector: 'London & SE' },
-      'c2c':                          { abbr: 'c2c',     sector: 'London & SE' },
+      'Caledonian Sleeper Limited':   { abbr: 'Sleeper',    sector: 'Long Distance', gbr: false },
+      'London North Eastern Railway': { abbr: 'LNER',       sector: 'Long Distance', gbr: true  },
+      'Avanti West Coast':            { abbr: 'AWC',        sector: 'Long Distance', gbr: true  },
+      'CrossCountry':                 { abbr: 'XC',         sector: 'Long Distance', gbr: true  },
+      'Great Western Railway':        { abbr: 'GWR',        sector: 'Long Distance', gbr: true  },
+      'TransPennine Trains':          { abbr: 'TPE',        sector: 'Long Distance', gbr: true  },
+      'East Midlands Railway':        { abbr: 'EMR',        sector: 'Regional',      gbr: true  },
+      'West Midlands Trains':         { abbr: 'WMT',        sector: 'Regional',      gbr: true  },
+      'ScotRail':                     { abbr: 'ScotRail',   sector: 'Regional',      gbr: false },
+      'Northern Trains':              { abbr: 'Northern',   sector: 'Regional',      gbr: true  },
+      'Transport for Wales':          { abbr: 'TfW',        sector: 'Regional',      gbr: false },
+      'Merseyrail':                   { abbr: 'Mersey',     sector: 'Regional',      gbr: false },
+      'Govia Thameslink Railway':     { abbr: 'GTR',        sector: 'London & SE',   gbr: true  },
+      'South Western Railway':        { abbr: 'SWR',        sector: 'London & SE',   gbr: true  },
+      'Elizabeth line':               { abbr: 'Elizabeth',  sector: 'London & SE',   gbr: false },
+      'Southeastern':                 { abbr: 'SER',        sector: 'London & SE',   gbr: true  },
+      'London Overground':            { abbr: 'Overground', sector: 'London & SE',   gbr: false },
+      'Chiltern':                     { abbr: 'Chiltern',   sector: 'London & SE',   gbr: true  },
+      'Greater Anglia':               { abbr: 'GA',         sector: 'London & SE',   gbr: true  },
+      'c2c':                          { abbr: 'c2c',        sector: 'London & SE',   gbr: true  },
     };
 
-    const SECTOR_ORDER = ['Long Distance', 'Regional', 'London & SE'];
+    const SECTOR_ORDER = ['Long Distance', 'Regional', 'London & SE', 'Non-GBR'];
 
     // ── Header labels ─────────────────────────────────────────────────────
     function setLabels() {
@@ -468,8 +496,8 @@
     setLabels();
     window.addEventListener('resize', () => { setLabels(); if (lastData) render(lastData); });
 
-    const API_URL = 'https://api1.raildata.org.uk/1033-realtime-performance-data-experience-api---performance-datav2_0/performanceData/RTOTM';
-    const API_KEY = 'j7N2cDARnEY3XH2KtUfvxS1AzGfCOHL1jjYClyvRhMXbSkgZ';
+    const API_URL = 'https://api1.raildata.org.uk/1033-realtime-performance-data-experience-api---performance-datav4_0/performanceData/RTOTM';
+    const API_KEY = 'tIeZWz6waRQH2J5WShqzEERdboH8a4IKwW8rwVAbxdKkKOmx';
 
     async function loadData() {
       const res = await fetch(API_URL, { headers: { 'x-apikey': API_KEY } });
@@ -484,11 +512,11 @@
         tocs: nat.operators
           .filter(o => o.operatorType === 'FRANCHISED')
           .map(o => {
-            const map = TOC_MAP[o.desc] || { abbr: o.desc, sector: 'Long Distance' };
+            const map = TOC_MAP[o.desc] || { abbr: o.desc, sector: 'Long Distance', gbr: true };
             return {
               name:   o.desc,
               abbr:   map.abbr,
-              sector: map.sector,
+              sector: map.gbr ? map.sector : 'Non-GBR',
               punct:  o.RTOTM.punctuality.timeTo3.percent,
               canc:   o.RTOTM.reliability.percent
             };
@@ -546,8 +574,11 @@
 
     // ── Live clock (independent of data fetch) ───────────────────────────
     function updateClock() {
+      const now = new Date();
       document.getElementById('timestamp').textContent =
-        new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('datestamp').textContent =
+        now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     }
     updateClock();
     setInterval(updateClock, 1000);

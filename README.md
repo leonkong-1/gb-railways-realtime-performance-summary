@@ -18,8 +18,9 @@ Both are shown at national level in the header and per-TOC in the grid, colour-c
 ## Features
 
 - Live data refreshed every 15 seconds
-- Live clock ticking every second; separate "last updated" timestamp on data refresh
-- TOCs grouped into sector bands — **Long Distance**, **Regional**, **London & SE** — sorted independently within each sector
+- Live clock ticking every second, showing time and date; separate "last updated" timestamp on data refresh
+- Header subtitle showing rolling window basis ("Rolling daily totals from 04:30 hours")
+- TOCs grouped into sector bands — **Long Distance**, **Regional**, **London & SE** — sorted independently within each sector; non-GBR franchised operators (Caledonian Sleeper, ScotRail, TfW, Elizabeth line, Merseyrail, London Overground) collected into a separate **Non-GBR** band at the bottom
 - Sort by Time to 3 or Cancellations, worst-first or best-first; active sort metric leads in each card and drives card border colour
 - Abbreviated TOC names (e.g. LNER, AWC, ScotRail) from `toc_mapping.csv`
 - Time to 3 displayed in **bold (700)**, Cancellations in **light (300)** — visually distinct without colour reliance
