@@ -1,6 +1,6 @@
 # GBR TOCs Real-Time Performance
 
-A single-file web dashboard showing live GB passenger rail punctuality and cancellation performance across all franchised TOCs. Designed to run full-screen on a wall display, and responsive for mobile browsing.
+A web dashboard showing live GB passenger rail punctuality and cancellation performance across all franchised TOCs. Designed to run full-screen on a wall display, and responsive for mobile browsing. Includes a TOC deep-dive page (currently GTR) showing service-group and sub-brand breakdown.
 
 **Live:** [leonkong-1.github.io/gb-railways-realtime-performance-summary](https://leonkong-1.github.io/gb-railways-realtime-performance-summary/)
 
@@ -17,6 +17,7 @@ Both are shown at national level in the header and per-TOC in the grid, colour-c
 
 ## Features
 
+### Overview page (`index.html`)
 - Live data refreshed every 15 seconds
 - Live clock ticking every second, showing time and date; separate "last updated" timestamp on data refresh
 - Header subtitle showing rolling window basis ("Rolling daily totals from 04:30 hours")
@@ -28,6 +29,16 @@ Both are shown at national level in the header and per-TOC in the grid, colour-c
 - Breathing animation on any value that changes between refreshes
 - Desktop: 3-column grid, horizontal card layout (name | metric | metric), fixed 40/30/30% column proportions per card
 - Mobile: 2-column scrollable layout, vertical card layout
+- GTR card is clickable — navigates to the GTR deep-dive page
+
+### GTR deep-dive (`gtr.html`)
+- Pulls from the TOC-specific API endpoint (TOC code 88) rather than the headline endpoint
+- Three-tier table: **GTR Total** → **sub-brand rollup** (Southern, Thameslink, Great Northern) → **service group** rows (indented)
+- Sub-brand percentages derived by summing raw counts across service groups first, then dividing — not averaging the per-group API percentages
+- Raw figures shown alongside percentages (count, totalStops, score, trains) for auditability
+- Column headers truncated on mobile ("Cancellations" → "Cancs", "totalStops" → "stops")
+- Same RAG thresholds, 15 s auto-refresh, breathing animation, and dark aesthetic as the overview page
+- Back link returns to `index.html`
 
 ## RAG thresholds
 

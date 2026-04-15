@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTR Performance Deep-Dive</title>
+  <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #0b0d12;
+      --header-bg:     #002147;
+      --header-accent: #CC0000;
+      --surface:       #13161c;
+      --border:        #252a35;
+      --text:          #f0f2f5;
+      --muted:         #6b7280;
+
+      --green:         #4ade80;
+      --green-bg:      #052e16;
+      --green-border:  #166534;
+
+      --amber:         #fbbf24;
+      --amber-bg:      #1c1003;
+      --amber-border:  #78350f;
+
+      --red:           #f87171;
+      --red-bg:        #1f0808;
+      --red-border:    #7f1d1d;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────────────── */
+    .header {
+      background: var(--header-bg);
+      border-bottom: 3px solid var(--header-accent);
+      padding: 1.4vh 2.2vw;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 2vw;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      color: rgba(255,255,255,0.45);
+      text-decoration: none;
+      font-size: clamp(11px, 0.85vw, 14px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .back-btn:hover { color: var(--text); }
+    .back-arrow { font-size: 1.1em; line-height: 1; }
+
+    .brand-block { display: flex; flex-direction: column; gap: 0.3vh; }
+    .brand-title {
+      font-size: clamp(16px, 2.2vw, 40px);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .brand-subtitle {
+      font-size: clamp(10px, 0.9vw, 15px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+    }
+
+    .live-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.6vh;
+    }
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5vw;
+      padding: 0.4vh 0.9vw;
+      background: rgba(74,222,128,0.12);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 100px;
+    }
+    .live-pill.error-pill {
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.3);
+    }
+    .live-dot {
+      width: clamp(7px,0.55vw,11px);
+      height: clamp(7px,0.55vw,11px);
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    .live-text {
+      font-size: clamp(9px,0.82vw,14px);
+      font-weight: 700;
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .timestamp {
+      font-size: clamp(13px,1.6vw,28px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .datestamp {
+      font-size: clamp(10px,0.9vw,15px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.04em;
+    }
+    .last-updated {
+      font-size: clamp(8px,0.65vw,11px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── CONTENT ─────────────────────────────────────────────────────────── */
+    .content {
+      padding: 2.4vh 2.2vw 5vh;
+    }
+
+    /* ── TABLE ─────────────────────────────────────────────────────────── */
+    .perf-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    /* Column widths */
+    .col-name       { width: 30%; }
+    .col-pct        { width: 9%; }
+    .col-raw-narrow { width: 7%; }
+    .col-raw-wide   { width: 9%; }
+
+    /* Header row */
+    .perf-table thead th {
+      padding: 0.5vh 0.8vw 0.9vh;
+      font-size: clamp(9px, 1.0vw, 17px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .perf-table thead th:first-child { text-align: left; }
+
+    /* Metric group labels spanning two columns */
+    .perf-table thead .group-header {
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* All cells */
+    .perf-table td {
+      padding: 0.8vh 0.8vw;
+      text-align: right;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    .perf-table td:first-child { text-align: left; }
+
+    /* ── GTR total row ── */
+    .row-total td {
+      background: rgba(255,255,255,0.04);
+      border-top: 1px solid var(--border);
+      border-bottom: 2px solid var(--border);
+    }
+    .row-total .cell-name {
+      font-size: clamp(13px, 1.7vw, 32px);
+      font-weight: 700;
+      color: var(--text);
+    }
+    .row-total .cell-pct {
+      font-size: clamp(14px, 1.85vw, 34px);
+      font-weight: 700;
+    }
+    .row-total .cell-raw {
+      font-size: clamp(11px, 1.4vw, 24px);
+      color: var(--muted);
+    }
+
+    /* ── Sub-brand rollup row ── */
+    .row-brand td {
+      background: rgba(255,255,255,0.025);
+      border-top: 2px solid var(--border);
+      border-bottom: 1px solid rgba(37,42,53,0.6);
+      padding-top: 1.5vh;
+      padding-bottom: 1.5vh;
+    }
+    .row-brand .cell-name {
+      font-size: clamp(12px, 1.6vw, 28px);
+      font-weight: 600;
+      color: var(--text);
+      padding-left: 0.4vw;
+    }
+    .row-brand .cell-pct {
+      font-size: clamp(13px, 1.7vw, 30px);
+      font-weight: 600;
+    }
+    .row-brand .cell-raw {
+      font-size: clamp(10px, 1.3vw, 21px);
+      color: var(--muted);
+    }
+
+    /* ── Service group row ── */
+    .row-sg td {
+      border-bottom: 1px solid rgba(37,42,53,0.45);
+    }
+    .row-sg .cell-name {
+      font-size: clamp(11px, 1.4vw, 23px);
+      font-weight: 400;
+      color: rgba(240,242,245,0.72);
+      padding-left: 1.6vw;
+    }
+    .row-sg .cell-pct {
+      font-size: clamp(12px, 1.45vw, 24px);
+      font-weight: 400;
+    }
+    .row-sg .cell-raw {
+      font-size: clamp(10px, 1.1vw, 17px);
+      color: rgba(107,114,128,0.85);
+    }
+
+    /* ── RAG colours ── */
+    .green { color: var(--green); }
+    .amber { color: var(--amber); }
+    .red   { color: var(--red);   }
+
+    /* ── Value update animation ── */
+    @keyframes value-breathe {
+      0%   { opacity:1;    transform:scale(1);    }
+      30%  { opacity:0.15; transform:scale(0.94); }
+      70%  { opacity:1;    transform:scale(1.05); }
+      100% { opacity:1;    transform:scale(1);    }
+    }
+    .value-update { animation: value-breathe 0.75s ease-in-out; }
+
+    /* ── Responsive column header labels ── */
+    .th-abbr { display: none; }
+    @media (max-width: 700px) {
+      .th-full { display: none; }
+      .th-abbr { display: inline; }
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 700px) {
+      .header {
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 2vw 3vw;
+        padding: 2.5vw 3.5vw;
+      }
+      .back-btn      { grid-column: 1; grid-row: 1; font-size: 10px; }
+      .brand-block   { grid-column: 1; grid-row: 2; }
+      .live-block    { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+      .brand-title   { font-size: clamp(14px, 5vw, 24px); }
+      .brand-subtitle { font-size: 11px; }
+      .content       { padding: 2vw 2.5vw 8vw; overflow-x: auto; }
+      .perf-table    { min-width: 560px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <a class="back-btn" href="index.html"><span class="back-arrow">&#8592;</span> Overview</a>
+    <div class="brand-block">
+      <span class="brand-title">GTR Performance Deep-Dive</span>
+      <span class="brand-subtitle">Govia Thameslink Railway &mdash; Rolling daily totals from 04:30 hours</span>
+    </div>
+    <div class="live-block">
+      <div class="live-pill" id="livePill">
+        <div class="live-dot" id="liveDot"></div>
+        <span class="live-text" id="liveText">Live</span>
+      </div>
+      <span class="timestamp" id="timestamp">—</span>
+      <span class="datestamp" id="datestamp">—</span>
+      <span class="last-updated" id="lastUpdated">&nbsp;</span>
+    </div>
+  </header>
+
+  <div class="content">
+    <table class="perf-table" id="perfTable">
+      <colgroup>
+        <col class="col-name">
+        <col class="col-pct">
+        <col class="col-raw-narrow">
+        <col class="col-raw-wide">
+        <col class="col-pct">
+        <col class="col-raw-narrow">
+        <col class="col-raw-narrow">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Time&nbsp;to&nbsp;3</th>
+          <th>count</th>
+          <th><span class="th-full">totalStops</span><span class="th-abbr">stops</span></th>
+          <th><span class="th-full">Cancellations</span><span class="th-abbr">Cancs</span></th>
+          <th>score</th>
+          <th>trains</th>
+        </tr>
+      </thead>
+      <tbody id="perfBody">
+        <!-- filled by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // ── Config ────────────────────────────────────────────────────────────
+    const API_URL = 'https://api1.raildata.org.uk/1033-realtime-performance-data-experience-api---performance-datav4_0/performanceData/RTOTM/toc/88';
+    const API_KEY = 'tIeZWz6waRQH2J5WShqzEERdboH8a4IKwW8rwVAbxdKkKOmx';
+
+    // ── Service group → sub-brand mapping (from gtr service groups mapping.csv) ──
+    const SG_BRAND = {
+      'Southern Coastway':            'Southern',
+      'Southern Outer':               'Southern',
+      'Southern Metro':               'Southern',
+      'Southern West London Line':    'Southern',
+      'Gatwick Express':              'Southern',
+      'Thameslink South Metro':       'Thameslink',
+      'Thameslink Kent Outer':        'Thameslink',
+      'Thameslink North Outer (MML)': 'Thameslink',
+      'Thameslink Sussex Outer':      'Thameslink',
+      'Thameslink North Metro (MML)': 'Thameslink',
+      'Great Northern Metro':         'Great Northern',
+      'Great Northern Outer':         'Great Northern',
+    };
+
+    const BRAND_ORDER = ['Southern', 'Thameslink', 'Great Northern'];
+
+    // ── RAG thresholds (same as index.html) ───────────────────────────────
+    const ragP = v => v >= 85 ? 'green' : v >= 80 ? 'amber' : 'red';
+    const ragC = v => v <= 2  ? 'green' : v <=  4 ? 'amber' : 'red';
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const pct     = (num, den) => den > 0 ? (num / den) * 100 : 0;
+    const fmtPct  = v => v.toFixed(1) + '%';
+    const fmtRaw  = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    // Sanitise service group names for use as element IDs
+    const safeId  = s => s.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // ── Fetch & shape ─────────────────────────────────────────────────────
+    async function loadData() {
+      const res = await fetch(API_URL, { headers: { 'x-apikey': API_KEY } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const pd   = json.performanceData;
+
+      // TOC-level totals as reported by the API
+      const tocTotal = {
+        count:      pd.RTOTM.punctuality.timeTo3.count,
+        totalStops: pd.RTOTM.punctuality.totalStops,
+        score:      pd.RTOTM.reliability.score,
+        trains:     pd.RTOTM.reliability.trains,
+        punct:      pd.RTOTM.punctuality.timeTo3.percent,
+        canc:       pd.RTOTM.reliability.percent,
+      };
+
+      // Service groups (trim trailing spaces from API names)
+      const serviceGroups = pd.serviceGroups.map(sg => ({
+        name:       sg.desc.trim(),
+        brand:      SG_BRAND[sg.desc.trim()] || 'Unknown',
+        count:      sg.RTOTM.punctuality.timeTo3.count,
+        totalStops: sg.RTOTM.punctuality.totalStops,
+        score:      sg.RTOTM.reliability.score,
+        trains:     sg.RTOTM.reliability.trains,
+        punct:      sg.RTOTM.punctuality.timeTo3.percent,
+        canc:       sg.RTOTM.reliability.percent,
+      }));
+
+      // Sub-brand rollups: sum raw counts, then derive percentages
+      const brandAccum = {};
+      BRAND_ORDER.forEach(b => {
+        brandAccum[b] = { count: 0, totalStops: 0, score: 0, trains: 0, serviceGroups: [] };
+      });
+      serviceGroups.forEach(sg => {
+        const b = sg.brand;
+        if (!brandAccum[b]) brandAccum[b] = { count: 0, totalStops: 0, score: 0, trains: 0, serviceGroups: [] };
+        brandAccum[b].count      += sg.count;
+        brandAccum[b].totalStops += sg.totalStops;
+        brandAccum[b].score      += sg.score;
+        brandAccum[b].trains     += sg.trains;
+        brandAccum[b].serviceGroups.push(sg);
+      });
+
+      const brands = BRAND_ORDER.map(b => {
+        const a = brandAccum[b];
+        return {
+          name:         b,
+          count:        a.count,
+          totalStops:   a.totalStops,
+          score:        a.score,
+          trains:       a.trains,
+          punct:        pct(a.count, a.totalStops),
+          canc:         pct(a.score, a.trains),
+          serviceGroups: a.serviceGroups,
+        };
+      });
+
+      return { tocTotal, brands };
+    }
+
+    // ── Live indicator ────────────────────────────────────────────────────
+    function setLiveState(ok) {
+      const pill = document.getElementById('livePill');
+      const dot  = document.getElementById('liveDot');
+      const txt  = document.getElementById('liveText');
+      if (ok) {
+        pill.classList.remove('error-pill');
+        dot.style.background = '';
+        dot.style.animationPlayState = '';
+        txt.style.color = '';
+        txt.textContent = 'Live';
+      } else {
+        pill.classList.add('error-pill');
+        dot.style.background = 'var(--red)';
+        dot.style.animationPlayState = 'paused';
+        txt.style.color = 'var(--red)';
+        txt.textContent = 'Data unavailable';
+      }
+    }
+
+    // ── Clock ─────────────────────────────────────────────────────────────
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('timestamp').textContent =
+        now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('datestamp').textContent =
+        now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ── Flash animation ───────────────────────────────────────────────────
+    function flashEl(el) {
+      el.classList.remove('value-update');
+      void el.offsetWidth;
+      el.classList.add('value-update');
+    }
+
+    // ── Collect which IDs changed (before re-render) ──────────────────────
+    function collectChanges(prev, curr) {
+      const changed = new Set();
+      const check = (id, a, b) => { if (a !== b) changed.add(id); };
+
+      const checkRow = (pfx, p, c) => {
+        check(pfx + '_punct',      p.punct,      c.punct);
+        check(pfx + '_canc',       p.canc,       c.canc);
+        check(pfx + '_count',      p.count,      c.count);
+        check(pfx + '_totalStops', p.totalStops, c.totalStops);
+        check(pfx + '_score',      p.score,      c.score);
+        check(pfx + '_trains',     p.trains,     c.trains);
+      };
+
+      checkRow('total', prev.tocTotal, curr.tocTotal);
+
+      const prevBrands = {};
+      prev.brands.forEach(b => { prevBrands[b.name] = b; });
+      curr.brands.forEach(b => {
+        const pb = prevBrands[b.name];
+        if (pb) checkRow('brand_' + safeId(b.name), pb, b);
+        const prevSgs = {};
+        if (pb) pb.serviceGroups.forEach(sg => { prevSgs[sg.name] = sg; });
+        b.serviceGroups.forEach(sg => {
+          const psg = prevSgs[sg.name];
+          if (psg) checkRow('sg_' + safeId(sg.name), psg, sg);
+        });
+      });
+
+      return changed;
+    }
+
+    // ── HTML builders ─────────────────────────────────────────────────────
+    function tdPct(val, ragFn, id) {
+      return `<td><span class="cell-pct ${ragFn(val)}" id="${id}">${fmtPct(val)}</span></td>`;
+    }
+    function tdRaw(val, id) {
+      return `<td><span class="cell-raw" id="${id}">${fmtRaw(val)}</span></td>`;
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────
+    let lastData = null;
+
+    function render(d) {
+      const prev    = lastData;
+      const changed = prev ? collectChanges(prev, d) : new Set();
+      lastData = d;
+
+      document.getElementById('lastUpdated').textContent =
+        'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      let html = '';
+
+      // GTR Total row
+      const t = d.tocTotal;
+      html += `
+        <tr class="row-total">
+          <td><span class="cell-name">GTR Total</span></td>
+          ${tdPct(t.punct, ragP, 'total_punct')}
+          ${tdRaw(t.count,      'total_count')}
+          ${tdRaw(t.totalStops, 'total_totalStops')}
+          ${tdPct(t.canc,  ragC, 'total_canc')}
+          ${tdRaw(t.score,  'total_score')}
+          ${tdRaw(t.trains, 'total_trains')}
+        </tr>`;
+
+      // Sub-brands and their service groups
+      d.brands.forEach(b => {
+        const bid = 'brand_' + safeId(b.name);
+        html += `
+          <tr class="row-brand">
+            <td><span class="cell-name">${b.name}</span></td>
+            ${tdPct(b.punct, ragP, bid + '_punct')}
+            ${tdRaw(b.count,      bid + '_count')}
+            ${tdRaw(b.totalStops, bid + '_totalStops')}
+            ${tdPct(b.canc,  ragC, bid + '_canc')}
+            ${tdRaw(b.score,  bid + '_score')}
+            ${tdRaw(b.trains, bid + '_trains')}
+          </tr>`;
+
+        b.serviceGroups.forEach(sg => {
+          const sid = 'sg_' + safeId(sg.name);
+          html += `
+            <tr class="row-sg">
+              <td><span class="cell-name">${sg.name}</span></td>
+              ${tdPct(sg.punct, ragP, sid + '_punct')}
+              ${tdRaw(sg.count,      sid + '_count')}
+              ${tdRaw(sg.totalStops, sid + '_totalStops')}
+              ${tdPct(sg.canc,  ragC, sid + '_canc')}
+              ${tdRaw(sg.score,  sid + '_score')}
+              ${tdRaw(sg.trains, sid + '_trains')}
+            </tr>`;
+        });
+      });
+
+      document.getElementById('perfBody').innerHTML = html;
+
+      // Flash any values that changed
+      changed.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) flashEl(el);
+      });
+    }
+
+    // ── Tick ──────────────────────────────────────────────────────────────
+    function tick() {
+      loadData()
+        .then(data => { setLiveState(true); render(data); })
+        .catch(err  => { console.error('GTR fetch failed:', err); setLiveState(false); });
+    }
+
+    tick();
+    setInterval(tick, 15_000);
+  </script>
+
+</body>
+</html>

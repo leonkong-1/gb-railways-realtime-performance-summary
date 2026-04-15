@@ -411,6 +411,13 @@
       background: rgba(255,255,255,0.04);
       color: rgba(255,255,255,0.7);
     }
+
+    /* ── Clickable card ── */
+    .card-clickable {
+      cursor: pointer;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .card-clickable:hover { opacity: 0.75; }
   </style>
 </head>
 <body>
@@ -676,6 +683,9 @@
           const rp        = ragP(t.punct);
           const rc        = ragC(t.canc);
           const borderRag = sortBy === 'punct' ? rp : rc;
+          const clickable = t.abbr === 'GTR';
+          const clickClass = clickable ? ' card-clickable' : '';
+          const clickAttr  = clickable ? ' onclick="window.location.href=\'gtr.html\'"' : '';
 
           // Active sort metric leads — swap order and alignment when sorting by canc
           const punctClass   = sortBy === 'canc' ? 'toc-metric right' : 'toc-metric';
@@ -698,14 +708,14 @@
 
           if (isMobile) {
             html += `
-              <div class="toc-card card-${borderRag}">
+              <div class="toc-card card-${borderRag}${clickClass}"${clickAttr}>
                 <div class="toc-name">${t.abbr}</div>
                 <div class="toc-body">${metricsHtml}</div>
               </div>`;
           } else {
             // Metrics are direct grid children — no toc-body wrapper
             html += `
-              <div class="toc-card card-${borderRag} card-row">
+              <div class="toc-card card-${borderRag} card-row${clickClass}"${clickAttr}>
                 <div class="toc-name" style="font-size:${nameSize}px">${t.abbr}</div>
                 ${metricsHtml}
               </div>`;
