@@ -13,7 +13,7 @@ Powered by the **NWR Realtime Performance Data API** from [Rail Data Marketplace
 - **Time to 3** — percentage of trains arriving within 3 minutes of schedule. The primary punctuality measure underpinning the current government's regulated performance targets for passenger rail.
 - **Cancellations** — percentage of scheduled services cancelled.
 
-Both are shown at national level in the header and per-TOC in the grid, colour-coded green / amber / red. Only franchised operators are shown; open-access operators and sector-level aggregates are excluded.
+Both are shown at national level in the header and per-TOC in the grid. Only franchised operators are shown; open-access operators and sector-level aggregates are excluded.
 
 ## Features
 
@@ -23,6 +23,7 @@ Both are shown at national level in the header and per-TOC in the grid, colour-c
 - Header subtitle showing rolling window basis ("Rolling daily totals from 04:30 hours")
 - TOCs grouped into sector bands — **Long Distance**, **Regional**, **London & SE** — sorted independently within each sector; non-GBR franchised operators (Caledonian Sleeper, ScotRail, TfW, Elizabeth line, Merseyrail, London Overground) collected into a separate **Non-GBR** band at the bottom
 - Sort by Time to 3 or Cancellations, worst-first or best-first; active sort metric leads in each card and drives card border colour
+- Card colours (green / red) reflect performance against each TOC's Joint Performance Strategy (JPS) franchise target for FY2026/27; TOCs without a JPS target and the national headline figures are shown in white
 - Abbreviated TOC names (e.g. LNER, AWC, ScotRail) from `toc_mapping.csv`
 - Time to 3 displayed in **bold (700)**, Cancellations in **light (300)** — visually distinct without colour reliance
 - Numbers use tabular figures for stable layout as values update
@@ -37,7 +38,8 @@ Both are shown at national level in the header and per-TOC in the grid, colour-c
 - Sub-brand percentages derived by summing raw counts across service groups first, then dividing — not averaging the per-group API percentages
 - Raw figures shown alongside percentages (count, totalStops, score, trains) for auditability
 - Column headers truncated on mobile ("Cancellations" → "Cancs", "totalStops" → "stops")
-- Same RAG thresholds, 15 s auto-refresh, breathing animation, and dark aesthetic as the overview page
+- GTR Total row uses the same JPS-based green / red colouring as the overview page; sub-brand and service group rows are shown in white
+- Same 15 s auto-refresh, breathing animation, and dark aesthetic as the overview page
 - Back link returns to `index.html`
 
 ## RAG thresholds

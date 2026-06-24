@@ -245,9 +245,9 @@
     }
 
     /* ── RAG colours ── */
-    .green { color: var(--green); }
-    .amber { color: var(--amber); }
-    .red   { color: var(--red);   }
+    .green   { color: var(--green); }
+    .red     { color: var(--red);   }
+    .neutral { color: var(--text);  }
 
     /* ── Value update animation ── */
     @keyframes value-breathe {
@@ -353,9 +353,11 @@
 
     const BRAND_ORDER = ['Southern', 'Thameslink', 'Great Northern'];
 
-    // ── RAG thresholds (same as index.html) ───────────────────────────────
-    const ragP = v => v >= 85 ? 'green' : v >= 80 ? 'amber' : 'red';
-    const ragC = v => v <= 2  ? 'green' : v <=  4 ? 'amber' : 'red';
+    // ── RAG: JPS-based for GTR Total row only; neutral for all sub-rows ──
+    const GTR_JPS  = { punct: 85.9, canc: 4.9 };
+    const ragP     = v => v > GTR_JPS.punct ? 'green' : 'red';
+    const ragC     = v => v < GTR_JPS.canc  ? 'green' : 'red';
+    const ragNone  = () => 'neutral';
 
     // ── Helpers ───────────────────────────────────────────────────────────
     const pct     = (num, den) => den > 0 ? (num / den) * 100 : 0;
@@ -535,10 +537,10 @@
         html += `
           <tr class="row-brand">
             <td><span class="cell-name">${b.name}</span></td>
-            ${tdPct(b.punct, ragP, bid + '_punct')}
-            ${tdRaw(b.count,      bid + '_count')}
-            ${tdRaw(b.totalStops, bid + '_totalStops')}
-            ${tdPct(b.canc,  ragC, bid + '_canc')}
+            ${tdPct(b.punct, ragNone, bid + '_punct')}
+            ${tdRaw(b.count,         bid + '_count')}
+            ${tdRaw(b.totalStops,    bid + '_totalStops')}
+            ${tdPct(b.canc,  ragNone, bid + '_canc')}
             ${tdRaw(b.score,  bid + '_score')}
             ${tdRaw(b.trains, bid + '_trains')}
           </tr>`;
@@ -548,10 +550,10 @@
           html += `
             <tr class="row-sg">
               <td><span class="cell-name">${sg.name}</span></td>
-              ${tdPct(sg.punct, ragP, sid + '_punct')}
-              ${tdRaw(sg.count,      sid + '_count')}
-              ${tdRaw(sg.totalStops, sid + '_totalStops')}
-              ${tdPct(sg.canc,  ragC, sid + '_canc')}
+              ${tdPct(sg.punct, ragNone, sid + '_punct')}
+              ${tdRaw(sg.count,         sid + '_count')}
+              ${tdRaw(sg.totalStops,    sid + '_totalStops')}
+              ${tdPct(sg.canc,  ragNone, sid + '_canc')}
               ${tdRaw(sg.score,  sid + '_score')}
               ${tdRaw(sg.trains, sid + '_trains')}
             </tr>`;

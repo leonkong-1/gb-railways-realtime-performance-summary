@@ -75,6 +75,14 @@
       white-space: nowrap;
     }
 
+    .brand-caption {
+      font-size: clamp(10px, 1.35vw, 25px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
     /* National metric lozenges */
     .nat-metric {
       display: flex;
@@ -354,18 +362,15 @@
     }
 
     /* ── RAG ─────────────────────────────────────────── */
-    .green { color: var(--green); }
-    .amber { color: var(--amber); }
-    .red   { color: var(--red);   }
+    .green   { color: var(--green); }
+    .red     { color: var(--red);   }
+    .neutral { color: var(--text);  }
 
-    .card-green { border-color: var(--green-border); }
-    .card-amber { border-color: var(--amber-border); }
-    .card-red   { border-color: var(--red-border);   }
+    .card-green   { border-color: var(--green-border); }
+    .card-red     { border-color: var(--red-border);   }
+    .card-neutral { border-color: var(--border);        }
 
-
-    .nat-green { color: var(--green); }
-    .nat-amber { color: var(--amber); }
-    .nat-red   { color: var(--red);   }
+    .nat-neutral { color: var(--text); }
 
     /* ── SORT BAR ────────────────────────────────── */
     .sort-bar {
@@ -427,6 +432,7 @@
     <div class="brand-block">
       <span class="brand-title">GBR TOCs Real-Time Performance</span>
       <span class="brand-subtitle">Rolling daily totals from 04:30 hours</span>
+      <span class="brand-caption">Colour ratings based on JPS targets for FY2026/27</span>
     </div>
 
     <div class="nat-metric" id="natPunct">
@@ -521,11 +527,12 @@
           .map(o => {
             const map = TOC_MAP[o.desc] || { abbr: o.desc, sector: 'Long Distance', gbr: true };
             return {
-              name:   o.desc,
-              abbr:   map.abbr,
-              sector: map.gbr ? map.sector : 'Non-GBR',
-              punct:  o.RTOTM.punctuality.timeTo3.percent,
-              canc:   o.RTOTM.reliability.percent
+              name:      o.desc,
+              abbr:      map.abbr,
+              sector:    map.gbr ? map.sector : 'Non-GBR',
+              punct:     o.RTOTM.punctuality.timeTo3.percent,
+              canc:      o.RTOTM.reliability.percent,
+              jpsTarget: JPS_TARGETS[o.desc] || null,
             };
           })
       };
@@ -550,8 +557,29 @@
       }
     }
 
-    const ragP = v => v >= 85 ? 'green' : v >= 80 ? 'amber' : 'red';
-    const ragC = v => v <= 2  ? 'green' : v <=  4 ? 'amber' : 'red';
+    const JPS_TARGETS = {
+      'ScotRail':                     { punct: 90.0, canc: 2.3 },
+      'Avanti West Coast':            { punct: 58.9, canc: 5.0 },
+      'c2c':                          { punct: 91.7, canc: 1.6 },
+      'Greater Anglia':               { punct: 92.0, canc: 1.7 },
+      'Elizabeth line':               { punct: 90.8, canc: 3.3 },
+      'Merseyrail':                   { punct: 91.0, canc: 2.7 },
+      'Transport for Wales':          { punct: 83.1, canc: 3.8 },
+      'West Midlands Trains':         { punct: 84.8, canc: 3.2 },
+      'East Midlands Railway':        { punct: 74.0, canc: 3.7 },
+      'Greater Thameslink Railway':   { punct: 85.9, canc: 4.9 },
+      'Great Western Railway':        { punct: 80.5, canc: 3.6 },
+      'South Western Railway':        { punct: 84.5, canc: 3.4 },
+      'Chiltern':                     { punct: 89.1, canc: 2.0 },
+      'CrossCountry':                 { punct: 68.5, canc: 6.7 },
+      'London North Eastern Railway': { punct: 67.6, canc: 3.6 },
+      'Northern Trains':              { punct: 77.9, canc: 3.5 },
+      'Southeastern':                 { punct: 85.5, canc: 2.3 },
+      'TransPennine Trains':          { punct: 67.8, canc: 4.1 },
+    };
+
+    const ragP = (actual, target) => target == null ? 'neutral' : actual > target ? 'green' : 'red';
+    const ragC = (actual, target) => target == null ? 'neutral' : actual < target ? 'green' : 'red';
 
     let sortBy   = 'punct';
     let sortDir  = 'worst';
@@ -601,9 +629,9 @@
       const prev = lastData; // capture before overwriting
       lastData = d;
 
-      // National metrics — flash if value changed
-      const pp   = ragP(d.national.punct);
-      const pc   = ragC(d.national.canc);
+      // National metrics — always neutral (no JPS target at network level)
+      const pp   = 'neutral';
+      const pc   = 'neutral';
       const pEl  = document.getElementById('natPunctVal');
       const cEl  = document.getElementById('natCancVal');
       const natPunctChanged = prev && prev.national.punct !== d.national.punct;
@@ -680,8 +708,8 @@
         html += `<div class="sector-header">${sectorName}</div>`;
 
         tocs.forEach(t => {
-          const rp        = ragP(t.punct);
-          const rc        = ragC(t.canc);
+          const rp        = ragP(t.punct, t.jpsTarget?.punct);
+          const rc        = ragC(t.canc,  t.jpsTarget?.canc);
           const borderRag = sortBy === 'punct' ? rp : rc;
           const clickable = t.abbr === 'GTR';
           const clickClass = clickable ? ' card-clickable' : '';
