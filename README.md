@@ -2,7 +2,7 @@
 
 A web dashboard showing live GB passenger rail punctuality and cancellation performance across all franchised TOCs. Designed to run full-screen on a wall display, and responsive for mobile browsing. Every TOC has a deep-dive page showing its service-group breakdown; GTR's deep-dive also rolls service groups up into sub-brands.
 
-**Live:** [leonkong-1.github.io/gb-railways-realtime-performance-summary](https://leonkong-1.github.io/gb-railways-realtime-performance-summary/)
+**Live:** [gbrperformance.uk](https://gbrperformance.uk/)
 
 ## Data source
 
