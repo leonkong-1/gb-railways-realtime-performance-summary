@@ -258,6 +258,47 @@
     }
     .value-update { animation: value-breathe 0.75s ease-in-out; }
 
+    /* ── Sort bar ── */
+    .sort-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8vw;
+      margin-bottom: 1.6vh;
+    }
+    .sort-label {
+      font-size: clamp(9px,0.72vw,13px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .sort-group {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .sort-btn {
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: clamp(9px,0.72vw,13px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.5vh 0.8vw;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .sort-btn:last-child { border-right: none; }
+    .sort-btn.active { background: rgba(255,255,255,0.08); color: var(--text); }
+    .sort-btn:hover:not(.active) { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); }
+
     /* ── Responsive column header labels ── */
     .th-abbr { display: none; }
     @media (max-width: 700px) {
@@ -303,6 +344,21 @@
   </header>
 
   <div class="content">
+    <div class="sort-bar">
+      <span class="sort-label">Sort by</span>
+      <div class="sort-group">
+        <button class="sort-btn active" data-sort="punct"      onclick="setSortBy('punct')">Time to 3</button>
+        <button class="sort-btn"        data-sort="count"      onclick="setSortBy('count')">Count</button>
+        <button class="sort-btn"        data-sort="totalStops" onclick="setSortBy('totalStops')">Stops</button>
+        <button class="sort-btn"        data-sort="canc"       onclick="setSortBy('canc')">Cancellations</button>
+        <button class="sort-btn"        data-sort="score"      onclick="setSortBy('score')">Score</button>
+        <button class="sort-btn"        data-sort="trains"     onclick="setSortBy('trains')">Trains</button>
+      </div>
+      <div class="sort-group">
+        <button class="sort-btn"        data-dir="asc"  onclick="setSortDir('asc')">Ascending</button>
+        <button class="sort-btn active" data-dir="desc" onclick="setSortDir('desc')">Descending</button>
+      </div>
+    </div>
     <table class="perf-table" id="perfTable">
       <colgroup>
         <col class="col-name">
@@ -506,6 +562,27 @@
     }
 
     // ── Render ────────────────────────────────────────────────────────────
+    // ── Sort: metric + direction, applied to service groups within each sub-brand ──
+    let sortBy  = 'punct';
+    let sortDir = 'desc';
+
+    function sortRows(rows) {
+      const sign = sortDir === 'asc' ? 1 : -1;
+      return [...rows].sort((a, b) => sign * (a[sortBy] - b[sortBy]));
+    }
+
+    function setSortBy(by) {
+      sortBy = by;
+      document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === by));
+      if (lastData) render(lastData);
+    }
+
+    function setSortDir(dir) {
+      sortDir = dir;
+      document.querySelectorAll('[data-dir]').forEach(b => b.classList.toggle('active', b.dataset.dir === dir));
+      if (lastData) render(lastData);
+    }
+
     let lastData = null;
 
     function render(d) {
@@ -513,7 +590,7 @@
       const changed = prev ? collectChanges(prev, d) : new Set();
       lastData = d;
 
-      document.getElementById('lastUpdated').textContent =
+      if (prev !== d) document.getElementById('lastUpdated').textContent =
         'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       let html = '';
@@ -545,7 +622,7 @@
             ${tdRaw(b.trains, bid + '_trains')}
           </tr>`;
 
-        b.serviceGroups.forEach(sg => {
+        sortRows(b.serviceGroups).forEach(sg => {
           const sid = 'sg_' + safeId(sg.name);
           html += `
             <tr class="row-sg">

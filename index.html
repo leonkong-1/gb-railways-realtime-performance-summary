@@ -528,6 +528,7 @@
             const map = TOC_MAP[o.desc] || { abbr: o.desc, sector: 'Long Distance', gbr: true };
             return {
               name:      o.desc,
+              code:      o.tocCode,
               abbr:      map.abbr,
               sector:    map.gbr ? map.sector : 'Non-GBR',
               punct:     o.RTOTM.punctuality.timeTo3.percent,
@@ -711,9 +712,10 @@
           const rp        = ragP(t.punct, t.jpsTarget?.punct);
           const rc        = ragC(t.canc,  t.jpsTarget?.canc);
           const borderRag = sortBy === 'punct' ? rp : rc;
-          const clickable = t.abbr === 'GTR';
-          const clickClass = clickable ? ' card-clickable' : '';
-          const clickAttr  = clickable ? ' onclick="window.location.href=\'gtr.html\'"' : '';
+          // Every TOC tile opens its drilldown; GTR has its own page with sub-brand rollups
+          const drillHref  = t.code === '88' ? 'gtr.html' : `toc.html?code=${t.code}`;
+          const clickClass = drillHref ? ' card-clickable' : '';
+          const clickAttr  = drillHref ? ` onclick="window.location.href='${drillHref}'"` : '';
 
           // Active sort metric leads — swap order and alignment when sorting by canc
           const punctClass   = sortBy === 'canc' ? 'toc-metric right' : 'toc-metric';

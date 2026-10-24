@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOC Performance Deep-Dive</title>
+  <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #0b0d12;
+      --header-bg:     #002147;
+      --header-accent: #CC0000;
+      --surface:       #13161c;
+      --border:        #252a35;
+      --text:          #f0f2f5;
+      --muted:         #6b7280;
+
+      --green:         #4ade80;
+      --green-bg:      #052e16;
+      --green-border:  #166534;
+
+      --amber:         #fbbf24;
+      --amber-bg:      #1c1003;
+      --amber-border:  #78350f;
+
+      --red:           #f87171;
+      --red-bg:        #1f0808;
+      --red-border:    #7f1d1d;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────────────── */
+    .header {
+      background: var(--header-bg);
+      border-bottom: 3px solid var(--header-accent);
+      padding: 1.4vh 2.2vw;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 2vw;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      color: rgba(255,255,255,0.45);
+      text-decoration: none;
+      font-size: clamp(11px, 0.85vw, 14px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .back-btn:hover { color: var(--text); }
+    .back-arrow { font-size: 1.1em; line-height: 1; }
+
+    .brand-block { display: flex; flex-direction: column; gap: 0.3vh; }
+    .brand-title {
+      font-size: clamp(16px, 2.2vw, 40px);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .brand-subtitle {
+      font-size: clamp(10px, 0.9vw, 15px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+    }
+
+    .live-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.6vh;
+    }
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5vw;
+      padding: 0.4vh 0.9vw;
+      background: rgba(74,222,128,0.12);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 100px;
+    }
+    .live-pill.error-pill {
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.3);
+    }
+    .live-dot {
+      width: clamp(7px,0.55vw,11px);
+      height: clamp(7px,0.55vw,11px);
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    .live-text {
+      font-size: clamp(9px,0.82vw,14px);
+      font-weight: 700;
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .timestamp {
+      font-size: clamp(13px,1.6vw,28px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .datestamp {
+      font-size: clamp(10px,0.9vw,15px);
+      font-weight: 300;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.04em;
+    }
+    .last-updated {
+      font-size: clamp(8px,0.65vw,11px);
+      font-weight: 400;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── CONTENT ─────────────────────────────────────────────────────────── */
+    .content {
+      padding: 2.4vh 2.2vw 5vh;
+    }
+
+    /* ── TABLE ─────────────────────────────────────────────────────────── */
+    .perf-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    /* Column widths */
+    .col-name       { width: 30%; }
+    .col-pct        { width: 9%; }
+    .col-raw-narrow { width: 7%; }
+    .col-raw-wide   { width: 9%; }
+
+    /* Header row */
+    .perf-table thead th {
+      padding: 0.5vh 0.8vw 0.9vh;
+      font-size: clamp(9px, 1.0vw, 17px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .perf-table thead th:first-child { text-align: left; }
+
+    /* All cells */
+    .perf-table td {
+      padding: 0.8vh 0.8vw;
+      text-align: right;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    .perf-table td:first-child { text-align: left; }
+
+    /* ── TOC total row ── */
+    .row-total td {
+      background: rgba(255,255,255,0.04);
+      border-top: 1px solid var(--border);
+      border-bottom: 2px solid var(--border);
+    }
+    .row-total .cell-name {
+      font-size: clamp(13px, 1.7vw, 32px);
+      font-weight: 700;
+      color: var(--text);
+    }
+    .row-total .cell-pct {
+      font-size: clamp(14px, 1.85vw, 34px);
+      font-weight: 700;
+    }
+    .row-total .cell-raw {
+      font-size: clamp(11px, 1.4vw, 24px);
+      color: var(--muted);
+    }
+
+    /* ── Service group row ── */
+    .row-sg td {
+      border-bottom: 1px solid rgba(37,42,53,0.45);
+    }
+    .row-sg .cell-name {
+      font-size: clamp(11px, 1.4vw, 23px);
+      font-weight: 400;
+      color: rgba(240,242,245,0.72);
+      padding-left: 1.6vw;
+    }
+    .row-sg .cell-pct {
+      font-size: clamp(12px, 1.45vw, 24px);
+      font-weight: 400;
+    }
+    .row-sg .cell-raw {
+      font-size: clamp(10px, 1.1vw, 17px);
+      color: rgba(107,114,128,0.85);
+    }
+
+    /* ── RAG colours ── */
+    .green   { color: var(--green); }
+    .red     { color: var(--red);   }
+    .neutral { color: var(--text);  }
+
+    /* ── Value update animation ── */
+    @keyframes value-breathe {
+      0%   { opacity:1;    transform:scale(1);    }
+      30%  { opacity:0.15; transform:scale(0.94); }
+      70%  { opacity:1;    transform:scale(1.05); }
+      100% { opacity:1;    transform:scale(1);    }
+    }
+    .value-update { animation: value-breathe 0.75s ease-in-out; }
+
+    /* ── Sort bar ── */
+    .sort-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8vw;
+      margin-bottom: 1.6vh;
+    }
+    .sort-label {
+      font-size: clamp(9px,0.72vw,13px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .sort-group {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .sort-btn {
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: clamp(9px,0.72vw,13px);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.5vh 0.8vw;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .sort-btn:last-child { border-right: none; }
+    .sort-btn.active { background: rgba(255,255,255,0.08); color: var(--text); }
+    .sort-btn:hover:not(.active) { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); }
+
+    /* ── Responsive column header labels ── */
+    .th-abbr { display: none; }
+    @media (max-width: 700px) {
+      .th-full { display: none; }
+      .th-abbr { display: inline; }
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 700px) {
+      .header {
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 2vw 3vw;
+        padding: 2.5vw 3.5vw;
+      }
+      .back-btn      { grid-column: 1; grid-row: 1; font-size: 10px; }
+      .brand-block   { grid-column: 1; grid-row: 2; }
+      .live-block    { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+      .brand-title   { font-size: clamp(14px, 5vw, 24px); }
+      .brand-subtitle { font-size: 11px; }
+      .content       { padding: 2vw 2.5vw 8vw; overflow-x: auto; }
+      .perf-table    { min-width: 560px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <a class="back-btn" href="index.html"><span class="back-arrow">&#8592;</span> Overview</a>
+    <div class="brand-block">
+      <span class="brand-title" id="tocTitle">TOC Performance Deep-Dive</span>
+      <span class="brand-subtitle" id="tocSubtitle">Rolling daily totals from 04:30 hours</span>
+    </div>
+    <div class="live-block">
+      <div class="live-pill" id="livePill">
+        <div class="live-dot" id="liveDot"></div>
+        <span class="live-text" id="liveText">Live</span>
+      </div>
+      <span class="timestamp" id="timestamp">—</span>
+      <span class="datestamp" id="datestamp">—</span>
+      <span class="last-updated" id="lastUpdated">&nbsp;</span>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="sort-bar">
+      <span class="sort-label">Sort by</span>
+      <div class="sort-group">
+        <button class="sort-btn active" data-sort="punct"      onclick="setSortBy('punct')">Time to 3</button>
+        <button class="sort-btn"        data-sort="count"      onclick="setSortBy('count')">Count</button>
+        <button class="sort-btn"        data-sort="totalStops" onclick="setSortBy('totalStops')">Stops</button>
+        <button class="sort-btn"        data-sort="canc"       onclick="setSortBy('canc')">Cancellations</button>
+        <button class="sort-btn"        data-sort="score"      onclick="setSortBy('score')">Score</button>
+        <button class="sort-btn"        data-sort="trains"     onclick="setSortBy('trains')">Trains</button>
+      </div>
+      <div class="sort-group">
+        <button class="sort-btn"        data-dir="asc"  onclick="setSortDir('asc')">Ascending</button>
+        <button class="sort-btn active" data-dir="desc" onclick="setSortDir('desc')">Descending</button>
+      </div>
+    </div>
+    <table class="perf-table" id="perfTable">
+      <colgroup>
+        <col class="col-name">
+        <col class="col-pct">
+        <col class="col-raw-narrow">
+        <col class="col-raw-wide">
+        <col class="col-pct">
+        <col class="col-raw-narrow">
+        <col class="col-raw-narrow">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Time&nbsp;to&nbsp;3</th>
+          <th>count</th>
+          <th><span class="th-full">totalStops</span><span class="th-abbr">stops</span></th>
+          <th><span class="th-full">Cancellations</span><span class="th-abbr">Cancs</span></th>
+          <th>score</th>
+          <th>trains</th>
+        </tr>
+      </thead>
+      <tbody id="perfBody">
+        <!-- filled by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // ── Config ────────────────────────────────────────────────────────────
+    const API_BASE = 'https://api1.raildata.org.uk/1033-realtime-performance-data-experience-api---performance-datav4_0/performanceData/RTOTM/toc/';
+    const API_KEY  = 'tIeZWz6waRQH2J5WShqzEERdboH8a4IKwW8rwVAbxdKkKOmx';
+
+    // JPS targets for the TOC total row RAG (from toc_jps_targets.csv), keyed by API tocCode.
+    // A TOC with no entry here renders its total row neutral.
+    const JPS_TARGETS = {
+      '60':  { punct: 90.0, canc: 2.3 },   // ScotRail
+      '65':  { punct: 58.9, canc: 5.0 },   // Avanti West Coast
+      '79':  { punct: 91.7, canc: 1.6 },   // c2c
+      '21':  { punct: 92.0, canc: 1.7 },   // Greater Anglia
+      '33':  { punct: 90.8, canc: 3.3 },   // Elizabeth line
+      '64':  { punct: 91.0, canc: 2.7 },   // Merseyrail
+      '71':  { punct: 83.1, canc: 3.8 },   // Transport for Wales
+      '29':  { punct: 84.8, canc: 3.2 },   // West Midlands Trains
+      '28':  { punct: 74.0, canc: 3.7 },   // East Midlands Railway
+      '25':  { punct: 80.5, canc: 3.6 },   // Great Western Railway
+      'SWT': { punct: 84.5, canc: 3.4 },   // South Western Railway
+      '74':  { punct: 89.1, canc: 2.0 },   // Chiltern
+      '27':  { punct: 68.5, canc: 6.7 },   // CrossCountry
+      '61':  { punct: 67.6, canc: 3.6 },   // London North Eastern Railway
+      '23':  { punct: 77.9, canc: 3.5 },   // Northern Trains
+      '80':  { punct: 85.5, canc: 2.3 },   // Southeastern
+      '20':  { punct: 67.8, canc: 4.1 },   // TransPennine Trains
+    };
+
+    // ── TOC code from query string, e.g. toc.html?code=SWT ───────────────
+    const tocCode = (new URLSearchParams(location.search).get('code') || '').toUpperCase();
+    const jps     = JPS_TARGETS[tocCode] || null;
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const ragP    = v => !jps ? 'neutral' : v > jps.punct ? 'green' : 'red';
+    const ragC    = v => !jps ? 'neutral' : v < jps.canc  ? 'green' : 'red';
+    const ragNone = () => 'neutral';
+
+    const pct     = (num, den) => den > 0 ? (num / den) * 100 : 0;
+    const fmtPct  = v => v.toFixed(1) + '%';
+    const fmtRaw  = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    // Sanitise service group names for use as element IDs
+    const safeId  = s => s.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // ── Fetch & shape ─────────────────────────────────────────────────────
+    async function loadData() {
+      const res = await fetch(API_BASE + encodeURIComponent(tocCode), { headers: { 'x-apikey': API_KEY } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const pd   = json.performanceData;
+
+      // TOC-level totals as reported by the API
+      const tocTotal = {
+        name:       pd.desc.trim(),
+        count:      pd.RTOTM.punctuality.timeTo3.count,
+        totalStops: pd.RTOTM.punctuality.totalStops,
+        score:      pd.RTOTM.reliability.score,
+        trains:     pd.RTOTM.reliability.trains,
+        punct:      pd.RTOTM.punctuality.timeTo3.percent,
+        canc:       pd.RTOTM.reliability.percent,
+      };
+
+      // Service groups (trim trailing spaces from API names)
+      const serviceGroups = pd.serviceGroups.map(sg => ({
+        name:       sg.desc.trim(),
+        count:      sg.RTOTM.punctuality.timeTo3.count,
+        totalStops: sg.RTOTM.punctuality.totalStops,
+        score:      sg.RTOTM.reliability.score,
+        trains:     sg.RTOTM.reliability.trains,
+        punct:      sg.RTOTM.punctuality.timeTo3.percent,
+        canc:       sg.RTOTM.reliability.percent,
+      }));
+
+      return { tocTotal, serviceGroups };
+    }
+
+    // ── Live indicator ────────────────────────────────────────────────────
+    function setLiveState(ok) {
+      const pill = document.getElementById('livePill');
+      const dot  = document.getElementById('liveDot');
+      const txt  = document.getElementById('liveText');
+      if (ok) {
+        pill.classList.remove('error-pill');
+        dot.style.background = '';
+        dot.style.animationPlayState = '';
+        txt.style.color = '';
+        txt.textContent = 'Live';
+      } else {
+        pill.classList.add('error-pill');
+        dot.style.background = 'var(--red)';
+        dot.style.animationPlayState = 'paused';
+        txt.style.color = 'var(--red)';
+        txt.textContent = 'Data unavailable';
+      }
+    }
+
+    // ── Clock ─────────────────────────────────────────────────────────────
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('timestamp').textContent =
+        now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('datestamp').textContent =
+        now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ── Flash animation ───────────────────────────────────────────────────
+    function flashEl(el) {
+      el.classList.remove('value-update');
+      void el.offsetWidth;
+      el.classList.add('value-update');
+    }
+
+    // ── Collect which IDs changed (before re-render) ──────────────────────
+    function collectChanges(prev, curr) {
+      const changed = new Set();
+      const check = (id, a, b) => { if (a !== b) changed.add(id); };
+
+      const checkRow = (pfx, p, c) => {
+        check(pfx + '_punct',      p.punct,      c.punct);
+        check(pfx + '_canc',       p.canc,       c.canc);
+        check(pfx + '_count',      p.count,      c.count);
+        check(pfx + '_totalStops', p.totalStops, c.totalStops);
+        check(pfx + '_score',      p.score,      c.score);
+        check(pfx + '_trains',     p.trains,     c.trains);
+      };
+
+      checkRow('total', prev.tocTotal, curr.tocTotal);
+
+      const prevSgs = {};
+      prev.serviceGroups.forEach(sg => { prevSgs[sg.name] = sg; });
+      curr.serviceGroups.forEach(sg => {
+        const psg = prevSgs[sg.name];
+        if (psg) checkRow('sg_' + safeId(sg.name), psg, sg);
+      });
+
+      return changed;
+    }
+
+    // ── HTML builders ─────────────────────────────────────────────────────
+    function tdPct(val, ragFn, id) {
+      return `<td><span class="cell-pct ${ragFn(val)}" id="${id}">${fmtPct(val)}</span></td>`;
+    }
+    function tdRaw(val, id) {
+      return `<td><span class="cell-raw" id="${id}">${fmtRaw(val)}</span></td>`;
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────
+    // ── Sort: metric + direction, applied to service groups ──────────────
+    let sortBy  = 'punct';
+    let sortDir = 'desc';
+
+    function sortRows(rows) {
+      const sign = sortDir === 'asc' ? 1 : -1;
+      return [...rows].sort((a, b) => sign * (a[sortBy] - b[sortBy]));
+    }
+
+    function setSortBy(by) {
+      sortBy = by;
+      document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === by));
+      if (lastData) render(lastData);
+    }
+
+    function setSortDir(dir) {
+      sortDir = dir;
+      document.querySelectorAll('[data-dir]').forEach(b => b.classList.toggle('active', b.dataset.dir === dir));
+      if (lastData) render(lastData);
+    }
+
+    let lastData = null;
+
+    function render(d) {
+      const prev    = lastData;
+      const changed = prev ? collectChanges(prev, d) : new Set();
+      lastData = d;
+
+      if (prev !== d) document.getElementById('lastUpdated').textContent =
+        'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      let html = '';
+
+      // TOC Total row
+      const t = d.tocTotal;
+      html += `
+        <tr class="row-total">
+          <td><span class="cell-name">${t.name} Total</span></td>
+          ${tdPct(t.punct, ragP, 'total_punct')}
+          ${tdRaw(t.count,      'total_count')}
+          ${tdRaw(t.totalStops, 'total_totalStops')}
+          ${tdPct(t.canc,  ragC, 'total_canc')}
+          ${tdRaw(t.score,  'total_score')}
+          ${tdRaw(t.trains, 'total_trains')}
+        </tr>`;
+
+      // Service groups
+      sortRows(d.serviceGroups).forEach(sg => {
+        const sid = 'sg_' + safeId(sg.name);
+        html += `
+          <tr class="row-sg">
+            <td><span class="cell-name">${sg.name}</span></td>
+            ${tdPct(sg.punct, ragNone, sid + '_punct')}
+            ${tdRaw(sg.count,         sid + '_count')}
+            ${tdRaw(sg.totalStops,    sid + '_totalStops')}
+            ${tdPct(sg.canc,  ragNone, sid + '_canc')}
+            ${tdRaw(sg.score,  sid + '_score')}
+            ${tdRaw(sg.trains, sid + '_trains')}
+          </tr>`;
+      });
+
+      document.getElementById('perfBody').innerHTML = html;
+
+      // Flash any values that changed
+      changed.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) flashEl(el);
+      });
+    }
+
+    // Set title from the API name on first successful load
+    function setTitle(name) {
+      document.title = name + ' Performance Deep-Dive';
+      document.getElementById('tocTitle').textContent = name + ' Performance Deep-Dive';
+      document.getElementById('tocSubtitle').textContent = name + ' — Rolling daily totals from 04:30 hours';
+    }
+
+    // ── Tick ──────────────────────────────────────────────────────────────
+    function tick() {
+      if (!/^[A-Z0-9]{2,4}$/.test(tocCode)) {
+        document.getElementById('tocTitle').textContent = 'Unknown TOC';
+        setLiveState(false);
+        return;
+      }
+      loadData()
+        .then(data => {
+          if (!lastData) setTitle(data.tocTotal.name);
+          setLiveState(true);
+          render(data);
+        })
+        .catch(err => { console.error('TOC fetch failed:', err); setLiveState(false); });
+    }
+
+    tick();
+    setInterval(tick, 15_000);
+  </script>
+
+</body>
+</html>
